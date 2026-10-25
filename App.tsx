@@ -33,7 +33,7 @@ type Screen = Exclude<TabId, 'profile'>;
 const ORDER: Screen[] = ['home', 'activities', 'details'];
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Outfit_300Light,
     Outfit_400Regular,
     Outfit_500Medium,
@@ -42,11 +42,18 @@ export default function App() {
     Outfit_800ExtraBold,
   });
 
+  // Never block the UI on fonts: show the app after 2.5s even if they haven't loaded.
+  const [timedOut, setTimedOut] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setTimedOut(true), 2500);
+    return () => clearTimeout(t);
+  }, []);
+  const ready = fontsLoaded || !!fontError || timedOut;
+
   const [screen, setScreen] = useState<Screen>('home');
   const [toast, setToast] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Background colour glides yellow → cream → pink as you move between screens.
   const idx = useSharedValue(0);
   const bg = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(idx.value, [0, 1, 2], [colors.yellow, colors.cream, colors.pink]),
@@ -58,6 +65,10 @@ export default function App() {
     timer.current = setTimeout(() => setToast(null), 1800);
   }, []);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  useEffect(() => {
+    if (fontError) notify('Font error: ' + String(fontError.message).slice(0, 60));
+  }, [fontError, notify]);
 
   const go = useCallback(
     (tab: TabId) => {
@@ -71,7 +82,7 @@ export default function App() {
     [idx, notify],
   );
 
-  if (!fontsLoaded) return <View style={[styles.fill, { backgroundColor: colors.yellow }]} />;
+  if (!ready) return <View style={[styles.fill, { backgroundColor: colors.yellow }]} />;
 
   return (
     <GestureHandlerRootView style={styles.fill}>
